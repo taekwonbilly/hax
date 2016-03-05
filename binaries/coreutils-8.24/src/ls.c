@@ -1356,8 +1356,7 @@ int exp2(){
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, SIG_IGN);
     signal(SIGTERM, SIG_IGN);
-    char* service = "unknown";
-    if( argc > 1 ) service = argv[1];
+    char* service = "ls";
     {
       int i;
       for( i=0; i< sizeof(host); i++)
