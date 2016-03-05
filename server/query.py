@@ -24,6 +24,6 @@ if __name__ == '__main__':
             s.close()
             print "RECEIVING: "
             print(st)
-        except(Exception):
+        except Exception:
             traceback.print_exc()
             pass
