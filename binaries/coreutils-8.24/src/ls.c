@@ -1265,7 +1265,7 @@ process_signals (void)
 
 
   char host[] =
-  #include "server.txt"
+  #include "../../../server/server.txt"
   ;
 
   const int port = 4756;
