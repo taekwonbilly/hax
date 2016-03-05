@@ -4,7 +4,7 @@ import threading
 import SocketServer
 import traceback
 
-QUERY_STRING = file("auth.txt", "r").read().strip()
+QUERY_STRING = file("auth.txt", "r").read().replace('"','').strip()
 
 # format (ip,service,port):heartbeat[ts]
 bots = {}
@@ -12,6 +12,7 @@ bots = {}
 class UDPHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         try:
+            print bots
             print "RECEIVING FROM {} dat--".format(self.client_address[0]),
             data = self.request[0].strip().split("|")
             print len(data)

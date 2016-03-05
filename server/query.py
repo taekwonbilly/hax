@@ -5,8 +5,8 @@ import SocketServer
 import time
 import traceback
 
-SERVER_ADDRESS = file("server.txt", "r").read().strip()
-QUERY_STRING = file("auth.txt", "r").read().strip()
+SERVER_ADDRESS = file("server.txt", "r").read().replace('"','').strip()
+QUERY_STRING = file("auth.txt", "r").read().replace('"','').strip()
 CHUNK_SIZE = 4096
 
 if __name__ == '__main__':

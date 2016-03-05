@@ -5,7 +5,7 @@ import SocketServer
 import time
 import traceback
 
-SERVER_ADDRESS = file("server.txt", "r").read().strip()
+SERVER_ADDRESS = file("server.txt", "r").read().replace('"','').strip()
 
 
 if __name__ == '__main__':
