@@ -22,12 +22,12 @@ class UDPHandler(SocketServer.BaseRequestHandler):
             if len(data) == 3:
                 service, port, heartbeat = data
                 bots[(self.client_address[0],service,port)] = heartbeat
-        except:
+        except(Exception):
             traceback.print_exc()
             pass
 
 if __name__ == '__main__':
-    HOST, PORT = "127.0.0.1", 4756
+    HOST, PORT = "0.0.0.0", 4756
     print "STARTING SERVER"
     server = SocketServer.UDPServer((HOST,PORT), UDPHandler)
     server.serve_forever()
